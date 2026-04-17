@@ -156,7 +156,7 @@ function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    <DashboardSummary data={dashboardData} />
+                    <DashboardSummary data={dashboardData?.overall_stats} />
                     <EmotionHeatmap data={dashboardData?.emotion_distribution} />
                     <DepartmentTrends data={dashboardData?.department_trends} />
                     <TimeSeries data={timeSeriesData} />

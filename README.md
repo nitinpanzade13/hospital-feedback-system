@@ -1,5 +1,7 @@
 # Hospital Feedback System - Complete Architecture Guide
 
+> 📖 **First time setting up?** See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed step-by-step instructions!
+
 ## 🏥 System Overview
 
 A decoupled, scalable architecture for real-time patient feedback analysis leveraging:
@@ -101,7 +103,31 @@ Hospital Feedback Project/
 
 ## 📦 Setup with Docker (Recommended)
 
-### 1. Clone and Configure
+### Quick Setup (Automated)
+
+**Windows:**
+```bash
+setup.bat
+```
+
+**Mac/Linux:**
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+The script will:
+1. Create `.env` file from template
+2. Check Docker installation
+3. Build frontend
+4. Start all services
+5. Display access URLs
+
+---
+
+### Manual Setup
+
+**1. Clone and Configure**
 
 ```bash
 # Clone the repository
