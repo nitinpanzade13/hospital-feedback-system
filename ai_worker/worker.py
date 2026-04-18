@@ -54,6 +54,7 @@ if HAS_TRANSFORMERS:
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"🤖 Using device: {DEVICE}")
 else:
+    DEVICE = "cpu"
     logger.info("⚠️  Transformers not available, using lightweight analysis")
 
 
@@ -95,7 +96,7 @@ class SentimentAnalyzer:
         
         if HAS_TRANSFORMERS and not USE_DEMO_MODE:
             try:
-                logger.info("Loading transformer model...")
+                logger.info("Loading transformer model (this may take 60-90 seconds)...")
                 self.classifier = pipeline(
                     "zero-shot-classification",
                     model="facebook/bart-large-mnli",
@@ -104,8 +105,10 @@ class SentimentAnalyzer:
                 self.use_transformers = True
                 logger.info("✓ Transformer model loaded successfully")
             except Exception as e:
-                logger.warning(f"Failed to load transformer: {e}")
-                logger.info("Falling back to lightweight analysis")
+                logger.warning(f"⚠️  Failed to load transformer model: {type(e).__name__}: {str(e)[:100]}")
+                logger.info("Falling back to lightweight keyword-based analysis...")
+                self.use_transformers = False
+                self.classifier = None
         
         if not self.use_transformers:
             logger.info("✓ Using lightweight keyword-based analysis")
@@ -445,10 +448,16 @@ async def main():
 
 
 if __name__ == "__main__":
+    print("🤖 Hospital Feedback AI Worker Starting...", flush=True)
     try:
+        print("📌 Running main loop...", flush=True)
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Worker stopped")
+        print("\n⏹️  Worker stopped by user (Ctrl+C)", flush=True)
+        logger.info("Worker stopped by user")
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
+        print(f"\n❌ FATAL ERROR: {type(e).__name__}: {str(e)}", flush=True)
+        logger.error(f"Fatal error: {type(e).__name__}: {e}", exc_info=True)
+        import traceback
+        traceback.print_exc()
         exit(1)
