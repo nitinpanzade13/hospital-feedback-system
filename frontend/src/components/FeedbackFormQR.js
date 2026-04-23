@@ -1,33 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { t } from '../translations';
+import React, { useState, useEffect, useCallback } from 'react';
+import apiClient from '../config/api';
+import { t, LANGUAGE_NAMES } from '../translations';
 import { redirectToForm, validateConfiguration } from '../config/FORM_REDIRECT_CONFIG';
 
 function FeedbackFormQR() {
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState('');
-  const [selectedLanguage] = useState('english'); // English only
+  const [selectedLanguage, setSelectedLanguage] = useState('english');
   const [qrCode, setQrCode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [configValid, setConfigValid] = useState(true);
 
-  useEffect(() => {
-    // Check if form configuration is valid on component mount
-    const isValid = validateConfiguration();
-    setConfigValid(isValid);
-    if (!isValid) {
-      console.warn('⚠️ Form configuration incomplete. Please update FORM_REDIRECT_CONFIG.js with all form URLs.');
-    }
-    
-    fetchDepartments();
-  }, []);
-
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`/api/departments`, { timeout: 5000 });
+      const response = await apiClient.get(`/api/departments`, { timeout: 5000 });
       
       if (!response.data || !response.data.departments) {
         throw new Error('Invalid response format');
@@ -39,16 +28,27 @@ function FeedbackFormQR() {
       if (depts.length > 0) {
         setSelectedDept(depts[0].name);
       } else {
-        setError(t('Could not load departments', selectedLanguage));
+        setError(t('Could not load departments', 'english'));
       }
     } catch (err) {
       console.error('Error fetching departments:', err);
-      setError(`${t('Could not load departments', selectedLanguage)}: ${err.message}`);
+      setError(`${t('Could not load departments', 'english')}: ${err.message}`);
       setDepartments([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Check if form configuration is valid on component mount
+    const isValid = validateConfiguration();
+    setConfigValid(isValid);
+    if (!isValid) {
+      console.warn('⚠️ Form configuration incomplete. Please update FORM_REDIRECT_CONFIG.js with all form URLs.');
+    }
+    
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   const handleOpenForm = () => {
     try {
@@ -160,6 +160,25 @@ function FeedbackFormQR() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="language-selector">
+        <label>🌐 Select Language:</label>
+        <div className="language-buttons">
+          {Object.entries(LANGUAGE_NAMES).map(([langCode, langName]) => (
+            <button
+              key={langCode}
+              onClick={() => {
+                setSelectedLanguage(langCode);
+                setQrCode(null); // Clear QR code when language changes
+              }}
+              className={`lang-btn ${selectedLanguage === langCode ? 'active' : ''}`}
+              disabled={loading}
+            >
+              {langName}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="form-actions">

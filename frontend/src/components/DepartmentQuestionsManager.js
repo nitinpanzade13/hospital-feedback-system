@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '../config/api';
 import './DepartmentQuestionsManager.css';
 
 const DepartmentQuestionsManager = () => {
@@ -9,9 +9,14 @@ const DepartmentQuestionsManager = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [showTranslations, setShowTranslations] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [newQuestion, setNewQuestion] = useState({
     question_text: '',
+    translations: {
+      hindi: '',
+      marathi: ''
+    },
     question_type: 'short_answer',
     required: true,
     options: []
@@ -32,7 +37,7 @@ const DepartmentQuestionsManager = () => {
   const fetchDepartments = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/departments');
+      const response = await apiClient.get('/api/departments');
       setDepartments(response.data.departments || []);
       if (response.data.departments && response.data.departments.length > 0) {
         setSelectedDept(response.data.departments[0].name);
@@ -49,7 +54,7 @@ const DepartmentQuestionsManager = () => {
   const fetchQuestions = async (dept) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/departments/${dept}/questions`);
+      const response = await apiClient.get(`/api/departments/${dept}/questions`);
       setQuestions(response.data.questions || []);
       setError('');
     } catch (err) {
@@ -71,7 +76,7 @@ const DepartmentQuestionsManager = () => {
 
     try {
       setLoading(true);
-      await axios.post(
+      await apiClient.post(
         `/api/departments/${selectedDept}/questions`,
         newQuestion
       );
@@ -106,7 +111,7 @@ const DepartmentQuestionsManager = () => {
 
     try {
       setLoading(true);
-      await axios.put(
+      await apiClient.put(
         `/api/departments/${selectedDept}/questions/${editingQuestion._id}`,
         editingQuestion
       );
@@ -130,7 +135,7 @@ const DepartmentQuestionsManager = () => {
 
     try {
       setLoading(true);
-      await axios.delete(
+      await apiClient.delete(
         `/api/departments/${selectedDept}/questions/${questionId}`
       );
       
@@ -228,7 +233,7 @@ const DepartmentQuestionsManager = () => {
           {(showAddQuestion || editingQuestion) && (
             <form className="dqm-question-form" onSubmit={editingQuestion ? handleUpdateQuestion : handleAddQuestion}>
               <div className="form-group">
-                <label>Question Text *</label>
+                <label>Question Text (English) *</label>
                 <textarea
                   value={currentQuestion.question_text}
                   onChange={(e) => {
@@ -238,10 +243,72 @@ const DepartmentQuestionsManager = () => {
                       setNewQuestion({ ...newQuestion, question_text: e.target.value });
                     }
                   }}
-                  placeholder="Enter your question"
+                  placeholder="Enter your question in English"
                   rows="3"
                 />
               </div>
+
+              {/* Translation Toggle */}
+              <div className="form-group">
+                <button 
+                  type="button"
+                  className="btn-toggle-translations"
+                  onClick={() => setShowTranslations(!showTranslations)}
+                >
+                  {showTranslations ? '✕ Hide Translations' : '➕ Add Translations'}
+                </button>
+              </div>
+
+              {/* Translation Fields */}
+              {showTranslations && (
+                <>
+                  <div className="form-group">
+                    <label>Question in Hindi</label>
+                    <textarea
+                      value={currentQuestion.translations?.hindi || ''}
+                      onChange={(e) => {
+                        const translations = currentQuestion.translations || {};
+                        if (editingQuestion) {
+                          setEditingQuestion({ 
+                            ...editingQuestion, 
+                            translations: { ...translations, hindi: e.target.value }
+                          });
+                        } else {
+                          setNewQuestion({ 
+                            ...newQuestion, 
+                            translations: { ...translations, hindi: e.target.value }
+                          });
+                        }
+                      }}
+                      placeholder="प्रश्न को हिंदी में दर्ज करें"
+                      rows="3"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Question in Marathi</label>
+                    <textarea
+                      value={currentQuestion.translations?.marathi || ''}
+                      onChange={(e) => {
+                        const translations = currentQuestion.translations || {};
+                        if (editingQuestion) {
+                          setEditingQuestion({ 
+                            ...editingQuestion, 
+                            translations: { ...translations, marathi: e.target.value }
+                          });
+                        } else {
+                          setNewQuestion({ 
+                            ...newQuestion, 
+                            translations: { ...translations, marathi: e.target.value }
+                          });
+                        }
+                      }}
+                      placeholder="प्रश्न मराठीमध्ये दर्ज करा"
+                      rows="3"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="form-row">
                 <div className="form-group">
@@ -348,7 +415,26 @@ const DepartmentQuestionsManager = () => {
                 <div key={question._id || index} className="question-item">
                   <div className="question-number">{index + 1}</div>
                   <div className="question-content">
-                    <p className="question-text">{question.question_text}</p>
+                    <p className="question-text">
+                      <strong>🇬🇧 English:</strong> {question.question_text}
+                    </p>
+                    
+                    {/* Display Translations */}
+                    {question.translations && (
+                      <div className="question-translations">
+                        {question.translations.hindi && (
+                          <p className="translation-item hindi">
+                            <strong>🇮🇳 हिन्दी:</strong> {question.translations.hindi}
+                          </p>
+                        )}
+                        {question.translations.marathi && (
+                          <p className="translation-item marathi">
+                            <strong>मराठी:</strong> {question.translations.marathi}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="question-meta">
                       <span className="badge badge-type">{question.question_type}</span>
                       {question.required && <span className="badge badge-required">Required</span>}

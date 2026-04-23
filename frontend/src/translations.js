@@ -2,14 +2,12 @@
 export const LANGUAGES = {
   ENGLISH: 'english',
   HINDI: 'hindi',
-  SPANISH: 'spanish',
   MARATHI: 'marathi'
 };
 
 export const LANGUAGE_NAMES = {
   english: 'English',
   hindi: 'हिन्दी',
-  spanish: 'Español',
   marathi: 'मराठी'
 };
 
@@ -37,7 +35,6 @@ export const TRANSLATIONS = {
     'Point your phone camera': '📸 इस QR कोड पर अपने फोन कैमरे को इंगित करें या नीचे दिए गए बटन को टैप करें',
     'Questions for': 'के लिए प्रश्न',
     'Type': 'प्रकार',
-    'Required': 'आवश्यक',
     'Optional': 'वैकल्पिक',
     'Form URL not configured': 'फॉर्म URL कॉन्फ़िगर नहीं किया गया है। कृपया पर्यावरण में GOOGLE_FORM_URL सेट करें।',
     'Could not load departments': 'विभाग लोड नहीं कर सके',
@@ -59,37 +56,6 @@ export const TRANSLATIONS = {
     'Loading questions': 'प्रश्न लोड हो रहे हैं...',
     'No questions yet': 'अभी तक कोई प्रश्न नहीं। शुरुआत करने के लिए कुछ जोड़ें!',
     'Add a new question': 'एक नया प्रश्न जोड़ें'
-  },
-  spanish: {
-    'Select Language': 'Seleccionar idioma',
-    'Select Department': 'Seleccionar departamento',
-    'Scan to Give Feedback': 'Escanear para dar comentarios',
-    'Open Feedback Form': '📝 Abrir formulario de comentarios',
-    'Point your phone camera': '📸 Apunta la cámara de tu teléfono a este código QR o toca el botón de abajo',
-    'Questions for': 'Preguntas para',
-    'Type': 'Tipo',
-    'Required': 'Requerido',
-    'Optional': 'Opcional',
-    'Form URL not configured': 'URL del formulario no configurada. Por favor, configure GOOGLE_FORM_URL en el entorno.',
-    'Could not load departments': 'No se pudieron cargar los departamentos',
-    'Could not load form': 'No se pudo cargar el formulario',
-    'Department not selected': 'Departamento no seleccionado',
-    'Loading departments': 'Cargando departamentos...',
-    'Add Question': 'Agregar pregunta',
-    'Cancel': 'Cancelar',
-    'Save': 'Guardar',
-    'Delete': 'Eliminar',
-    'Edit': 'Editar',
-    'Question Text': 'Texto de la pregunta',
-    'Question Type': 'Tipo de pregunta',
-    'Required': 'Requerido',
-    'Add Option': 'Agregar opción',
-    'Questions added successfully': 'Preguntas agregadas exitosamente',
-    'Failed to add question': 'Error al agregar pregunta',
-    'Failed to delete question': 'Error al eliminar pregunta',
-    'Loading questions': 'Cargando preguntas...',
-    'No questions yet': '¡Sin preguntas aún! ¡Agrega algunas para comenzar!',
-    'Add a new question': 'Añadir una nueva pregunta'
   },
   marathi: {
     'Select Language': 'भाषा निवडा',
@@ -113,7 +79,6 @@ export const TRANSLATIONS = {
     'Edit': 'संपादित करा',
     'Question Text': 'प्रश्न मजकूर',
     'Question Type': 'प्रश्नाचा प्रकार',
-    'Required': 'आवश्यक',
     'Add Option': 'पर्याय जोडा',
     'Questions added successfully': 'प्रश्न यशस्वीरित्या जोडले गेले',
     'Failed to add question': 'प्रश्न जोडणे अयशस्वी',
@@ -121,6 +86,65 @@ export const TRANSLATIONS = {
     'Loading questions': 'प्रश्न लोड होत आहेत...',
     'No questions yet': 'अद्याप कोणतेही प्रश्न नाही. सुरुवातीसाठी काही जोडा!',
     'Add a new question': 'नवीन प्रश्न जोडा'
+  }
+};
+
+// Question translations for feedback forms
+export const QUESTION_TRANSLATIONS = {
+  "How would you rate your overall experience?": {
+    english: "How would you rate your overall experience?",
+    hindi: "आपके समग्र अनुभव को आप कैसे रेट करेंगे?",
+    marathi: "आपला एकूण अनुभव कसा होता?"
+  },
+  "What did you appreciate most about our service?": {
+    english: "What did you appreciate most about our service?",
+    hindi: "आपको हमारी सेवा में सबसे ज्यादा क्या पसंद आया?",
+    marathi: "आमच्या सेवेत तुम्हाला सर्वात जास्त काय आवडले?"
+  },
+  "What areas can we improve?": {
+    english: "What areas can we improve?",
+    hindi: "हम किन क्षेत्रों में सुधार कर सकते हैं?",
+    marathi: "आम्ही कोणत्या क्षेत्रांमध्ये सुधारणा करू शकतो?"
+  },
+  "How would you rate the waiting time?": {
+    english: "How would you rate the waiting time?",
+    hindi: "प्रतीक्षा समय को आप कैसे रेट करेंगे?",
+    marathi: "प्रतीक्षा वेळा तुम्ही कसा रेट करता?"
+  },
+  "How satisfied are you with the cleanliness?": {
+    english: "How satisfied are you with the cleanliness?",
+    hindi: "क्या आप सफाई से संतुष्ट हैं?",
+    marathi: "तुम स्वच्छतेने संतुष्ट आहात का?"
+  },
+  "How would you rate the staff behavior?": {
+    english: "How would you rate the staff behavior?",
+    hindi: "कर्मचारियों के व्यवहार को आप कैसे रेट करेंगे?",
+    marathi: "कर्मचाऱ्यांचे वर्तन तुम्ही कसा रेट करता?"
+  },
+  "Would you recommend us to others?": {
+    english: "Would you recommend us to others?",
+    hindi: "क्या आप हमें दूसरों को सुझाएंगे?",
+    marathi: "तुम आम्हाला इतरांना शिफारस कराल का?"
+  },
+  "How is the quality of medical care?": {
+    english: "How is the quality of medical care?",
+    hindi: "चिकित्सा सेवा की गुणवत्ता कैसी है?",
+    marathi: "वैद्यकीय सेवेची गुणवत्ता कशी आहे?"
+  },
+  "Add Translations": {
+    english: "Add Translations",
+    hindi: "अनुवाद जोड़ें",
+    marathi: "भाषांतर जोडा"
+  },
+  "Question in Hindi": {
+    english: "Question in Hindi",
+    hindi: "हिंदी में प्रश्न",
+    marathi: "हिंदीतील प्रश्न"
+  },
+  "Question in Marathi": {
+    english: "Question in Marathi",
+    hindi: "मराठी में प्रश्न",
+    marathi: "मराठीतील प्रश्न"
   }
 };
 

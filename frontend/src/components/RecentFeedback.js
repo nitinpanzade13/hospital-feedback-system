@@ -1,5 +1,6 @@
 import React from 'react';
 import moment from 'moment';
+import { LANGUAGE_NAMES } from '../translations';
 
 function RecentFeedback({ feedbacks }) {
   if (!feedbacks || feedbacks.length === 0) {
@@ -28,6 +29,12 @@ function RecentFeedback({ feedbacks }) {
     return '⭐'.repeat(rating) + '☆'.repeat(5 - rating);
   };
 
+  const getLanguageBadge = (language) => {
+    const langCode = (language || 'english').toLowerCase();
+    const langName = LANGUAGE_NAMES[langCode] || 'English';
+    return langName;
+  };
+
   return (
     <div className="feedback-list">
       {feedbacks.map((feedback) => (
@@ -39,6 +46,11 @@ function RecentFeedback({ feedbacks }) {
             {feedback.emotion && (
               <span className="feedback-emotion">
                 {getEmotionEmoji(feedback.emotion)} {feedback.emotion}
+              </span>
+            )}
+            {feedback.language && (
+              <span className="feedback-language">
+                🌐 {getLanguageBadge(feedback.language)}
               </span>
             )}
           </div>

@@ -1,18 +1,19 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import axios from 'axios';
+import apiClient from '../config/api';
 import DashboardSummary from '../components/DashboardSummary';
 import EmotionHeatmap from '../components/EmotionHeatmap';
 import DepartmentTrends from '../components/DepartmentTrends';
 import RecentFeedback from '../components/RecentFeedback';
 import TimeSeries from '../components/TimeSeries';
+import SentimentPieChart from '../components/SentimentPieChart';
+import DepartmentNegativePoints from '../components/DepartmentNegativePoints';
+import DepartmentSentimentPie from '../components/DepartmentSentimentPie';
 import ExportButton from '../components/ExportButton';
 import FeedbackFormQR from '../components/FeedbackFormQR';
 import DepartmentQuestionsManager from '../components/DepartmentQuestionsManager';
 import '../styles/Dashboard.css';
-
-const API_BASE_URL = '';
 
 function Dashboard() {
   const { currentUser, logout } = useContext(AuthContext);
@@ -37,8 +38,8 @@ function Dashboard() {
     try {
       setConnectionStatus('connecting');
       const [summaryResponse, timeSeriesResponse] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/dashboard/summary`, { timeout: 10000 }),
-        axios.get(`${API_BASE_URL}/api/dashboard/time-series`, { timeout: 10000 })
+        apiClient.get('/api/dashboard/summary', { timeout: 10000 }),
+        apiClient.get('/api/dashboard/time-series', { timeout: 10000 })
       ]);
 
       setDashboardData(summaryResponse.data);
@@ -157,8 +158,11 @@ function Dashboard() {
                 ) : (
                   <>
                     <DashboardSummary data={dashboardData?.overall_stats} />
+                    <SentimentPieChart />
                     <EmotionHeatmap data={dashboardData?.emotion_distribution} />
                     <DepartmentTrends data={dashboardData?.department_trends} />
+                    <DepartmentSentimentPie />
+                    <DepartmentNegativePoints />
                     <TimeSeries data={timeSeriesData} />
                     <RecentFeedback feedbacks={dashboardData?.recent_feedback} />
                   </>

@@ -189,6 +189,10 @@ async def lifespan(app: FastAPI):
                     {
                         "_id": ObjectId(),
                         "question_text": "How would you rate your overall experience?",
+                        "translations": {
+                            "hindi": "आपके समग्र अनुभव को आप कैसे रेट करेंगे?",
+                            "marathi": "आपला एकूण अनुभव कसा होता?"
+                        },
                         "question_type": "rating",
                         "required": True,
                         "order": 1
@@ -196,6 +200,10 @@ async def lifespan(app: FastAPI):
                     {
                         "_id": ObjectId(),
                         "question_text": "What did you appreciate most about our service?",
+                        "translations": {
+                            "hindi": "आपने हमारी सेवा में सबसे ज्यादा क्या सराहा?",
+                            "marathi": "आपने आमच्या सेवेबद्दल सर्वात जास्त काय सराहले?"
+                        },
                         "question_type": "paragraph",
                         "required": True,
                         "order": 2
@@ -203,6 +211,10 @@ async def lifespan(app: FastAPI):
                     {
                         "_id": ObjectId(),
                         "question_text": "What areas can we improve?",
+                        "translations": {
+                            "hindi": "हम किन क्षेत्रों में सुधार कर सकते हैं?",
+                            "marathi": "आम्ही कोणत्या क्षेत्रात सुधार करू शकतो?"
+                        },
                         "question_type": "paragraph",
                         "required": False,
                         "order": 3
@@ -576,6 +588,50 @@ async def get_pending_feedback(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/feedback")
+async def get_feedbacks(department: Optional[str] = None, sentiment: Optional[str] = None, limit: int = 50):
+    """
+    Get feedbacks filtered by department and sentiment type.
+    
+    Args:
+        department: Department name to filter by
+        sentiment: 'positive', 'negative', or 'neutral'
+        limit: Maximum number of feedbacks to return
+    """
+    try:
+        query = {"status": "processed"}  # Only get processed feedback with emotion
+        
+        if department:
+            query["department"] = department
+        
+        # Map sentiment to emotions
+        if sentiment:
+            positive_emotions = ["joy", "satisfaction", "gratitude", "surprise"]
+            negative_emotions = ["anger", "dissatisfaction", "concern"]
+            
+            if sentiment.lower() == "positive":
+                query["emotion"] = {"$in": positive_emotions}
+            elif sentiment.lower() == "negative":
+                query["emotion"] = {"$in": negative_emotions}
+            elif sentiment.lower() == "neutral":
+                query["emotion"] = "neutral"
+        
+        cursor = db[COLLECTION_NAME].find(query).sort("timestamp", -1).limit(limit)
+        feedbacks = await cursor.to_list(length=limit)
+        
+        # Convert ObjectId to string
+        for feedback in feedbacks:
+            feedback["_id"] = str(feedback["_id"])
+        
+        return {
+            "status": "success",
+            "count": len(feedbacks),
+            "feedback": feedbacks
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/feedback/{feedback_id}/process")
 async def update_feedback_result(
     feedback_id: str, 
@@ -750,6 +806,173 @@ async def get_time_series(days: int = 30):
         return {
             "status": "success",
             "time_series": time_series
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/dashboard/sentiment-distribution")
+async def get_sentiment_distribution():
+    """
+    Get sentiment distribution for the pie chart.
+    Returns counts of positive, negative, and neutral feedbacks.
+    """
+    try:
+        # Map emotions to sentiment categories
+        positive_emotions = ["joy", "satisfaction", "gratitude", "surprise"]
+        negative_emotions = ["anger", "dissatisfaction", "concern"]
+        # neutral is already neutral
+        
+        # Count total feedback
+        total_feedback = await db[COLLECTION_NAME].count_documents({})
+        
+        # Pipeline to categorize emotions
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$emotion",
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        
+        emotion_counts = await db[COLLECTION_NAME].aggregate(pipeline).to_list(None)
+        
+        # Categorize emotions
+        positive_count = 0
+        negative_count = 0
+        neutral_count = 0
+        
+        for emotion_data in emotion_counts:
+            emotion = emotion_data.get("_id")
+            count = emotion_data.get("count", 0)
+            
+            if emotion in positive_emotions:
+                positive_count += count
+            elif emotion in negative_emotions:
+                negative_count += count
+            elif emotion == "neutral":
+                neutral_count += count
+            else:
+                # Unprocessed feedback or unknown emotion, consider as neutral
+                neutral_count += count
+        
+        # Add unprocessed feedback to neutral
+        unprocessed_count = await db[COLLECTION_NAME].count_documents({"emotion": {"$exists": False}})
+        neutral_count += unprocessed_count
+        
+        return {
+            "status": "success",
+            "positive_count": positive_count,
+            "negative_count": negative_count,
+            "neutral_count": neutral_count,
+            "total": total_feedback,
+            "positive_percentage": round((positive_count / total_feedback * 100), 2) if total_feedback > 0 else 0,
+            "negative_percentage": round((negative_count / total_feedback * 100), 2) if total_feedback > 0 else 0,
+            "neutral_percentage": round((neutral_count / total_feedback * 100), 2) if total_feedback > 0 else 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/dashboard/department-negative-issues")
+async def get_department_negative_issues():
+    """
+    Get negative feedback issues breakdown by department.
+    Returns department-wise statistics with negative feedback percentages and common issues.
+    """
+    try:
+        positive_emotions = ["joy", "satisfaction", "gratitude", "surprise"]
+        negative_emotions = ["anger", "dissatisfaction", "concern"]
+        
+        # Get all departments
+        departments = await db[DEPARTMENTS_COLLECTION_NAME].find().to_list(None)
+        department_names = [dept["name"] for dept in departments]
+        
+        results = []
+        
+        for dept_name in department_names:
+            # Get all feedback for this department
+            dept_feedback = await db[COLLECTION_NAME].find({"department": dept_name}).to_list(None)
+            
+            if not dept_feedback:
+                continue
+            
+            total_feedback = len(dept_feedback)
+            
+            # Count sentiments
+            positive_count = 0
+            negative_count = 0
+            neutral_count = 0
+            
+            for feedback in dept_feedback:
+                emotion = feedback.get("emotion")
+                
+                if emotion in positive_emotions:
+                    positive_count += 1
+                elif emotion in negative_emotions:
+                    negative_count += 1
+                else:
+                    neutral_count += 1
+            
+            negative_percentage = round((negative_count / total_feedback * 100), 2) if total_feedback > 0 else 0
+            
+            # Extract common issues from negative feedback
+            negative_feedback = [f for f in dept_feedback if f.get("emotion") in negative_emotions]
+            
+            # Extract common issues/problems from feedback text
+            common_issues = {}
+            issue_keywords = ["wait", "staff", "cleanliness", "facilities", "communication", "rude", "slow", "poor", "bad", "late"]
+            
+            for feedback in negative_feedback:
+                feedback_text = feedback.get("feedback_text", "").lower()
+                
+                for keyword in issue_keywords:
+                    if keyword in feedback_text:
+                        common_issues[keyword] = common_issues.get(keyword, 0) + 1
+            
+            # Sort issues by frequency
+            sorted_issues = sorted(common_issues.items(), key=lambda x: x[1], reverse=True)[:5]
+            
+            dept_result = {
+                "department_name": dept_name,
+                "total_feedback": total_feedback,
+                "positive_count": positive_count,
+                "neutral_count": neutral_count,
+                "negative_count": negative_count,
+                "negative_percentage": negative_percentage,
+                "common_issues": [
+                    {
+                        "issue": issue,
+                        "count": count,
+                        "percentage": round((count / total_feedback * 100), 2)
+                    }
+                    for issue, count in sorted_issues
+                ]
+            }
+            
+            results.append(dept_result)
+        
+        # Sort departments by negative percentage (descending)
+        results.sort(key=lambda x: x["negative_percentage"], reverse=True)
+        
+        # Calculate overall statistics
+        total_all_feedback = await db[COLLECTION_NAME].count_documents({})
+        total_negative = sum(r["negative_count"] for r in results)
+        
+        overall_stats = {
+            "total_departments": len(results),
+            "total_feedback": total_all_feedback,
+            "total_negative_feedback": total_negative,
+            "average_negative_percentage": round((total_negative / total_all_feedback * 100), 2) if total_all_feedback > 0 else 0,
+            "most_issues_department": results[0]["department_name"] if results else None,
+            "most_issues_count": results[0]["negative_count"] if results else 0
+        }
+        
+        return {
+            "status": "success",
+            "overall_stats": overall_stats,
+            "departments": results
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1051,12 +1274,14 @@ async def create_department(department: DepartmentModel):
 
 
 @app.get("/api/departments/{department}/questions")
-async def get_department_questions(department: str):
+async def get_department_questions(department: str, language: Optional[str] = None):
     """
     Get all questions for a specific department.
+    If language is specified, return questions in that language.
     
     Args:
         department: Department name
+        language: Optional language code (english, hindi, marathi)
     
     Returns:
         List of questions for the department
@@ -1068,14 +1293,34 @@ async def get_department_questions(department: str):
             raise HTTPException(status_code=404, detail="Department not found")
         
         dept_questions["_id"] = str(dept_questions["_id"])
-        for question in dept_questions.get("questions", []):
-            if "_id" in question:
-                question["_id"] = str(question["_id"])
+        
+        questions = dept_questions.get("questions", [])
+        
+        # If language is specified and not English, translate the questions
+        if language and language.lower() in ['hindi', 'marathi']:
+            translated_questions = []
+            for question in questions:
+                q_copy = question.copy()
+                if "_id" in q_copy:
+                    q_copy["_id"] = str(q_copy["_id"])
+                
+                # Get translation if available
+                if "translations" in q_copy and language.lower() in q_copy["translations"]:
+                    q_copy["question_text"] = q_copy["translations"][language.lower()]
+                
+                translated_questions.append(q_copy)
+            questions = translated_questions
+        else:
+            # Return English or keep original
+            for question in questions:
+                if "_id" in question:
+                    question["_id"] = str(question["_id"])
         
         return {
             "status": "success",
             "department": department,
-            "questions": dept_questions.get("questions", [])
+            "language": language or "english",
+            "questions": questions
         }
     except HTTPException:
         raise

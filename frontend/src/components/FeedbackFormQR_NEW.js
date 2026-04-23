@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '../config/api';
 import { t } from '../translations';
 import { redirectToForm, validateConfiguration } from '../config/FORM_REDIRECT_CONFIG';
 
@@ -27,7 +27,7 @@ function FeedbackFormQR() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`/api/departments`, { timeout: 5000 });
+      const response = await apiClient.get(`/api/departments`, { timeout: 5000 });
       
       if (!response.data || !response.data.departments) {
         throw new Error('Invalid response format');
