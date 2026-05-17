@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../config/api';
 import { t, LANGUAGE_NAMES } from '../translations';
-import { redirectToForm, validateConfiguration } from '../config/FORM_REDIRECT_CONFIG';
+import { redirectToForm, validateConfiguration, getFormUrl } from '../config/FORM_REDIRECT_CONFIG';
 
 function FeedbackFormQR() {
   const [departments, setDepartments] = useState([]);
@@ -62,11 +62,11 @@ function FeedbackFormQR() {
         return;
       }
       
-      console.log('🔄 Redirecting to form for:', selectedDept);
+      console.log('🔄 Redirecting to form for:', selectedDept, selectedLanguage);
       
       // This will redirect to the department-specific form
       // The form will have all questions pre-loaded for that department
-      redirectToForm(selectedDept);
+      redirectToForm(selectedDept, selectedLanguage);
       
     } catch (error) {
       console.error('Error opening form:', error);
@@ -83,12 +83,10 @@ function FeedbackFormQR() {
 
       setLoading(true);
       
-      // Import the config to get the form URL
-      const { DEPARTMENT_FORM_URLS } = await import('../config/FORM_REDIRECT_CONFIG');
-      const formUrl = DEPARTMENT_FORM_URLS[selectedDept];
+      const formUrl = getFormUrl(selectedDept, selectedLanguage);
       
       if (!formUrl || formUrl.includes('REPLACE')) {
-        alert(`Form URL not configured for ${selectedDept}. Please update FORM_REDIRECT_CONFIG.js`);
+        alert(`Form URL not configured for ${selectedDept} (${selectedLanguage}). Please update FORM_REDIRECT_CONFIG.js`);
         setLoading(false);
         return;
       }
@@ -98,7 +96,7 @@ function FeedbackFormQR() {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(formUrl)}`;
       
       setQrCode(qrUrl);
-      console.log('✅ QR Code generated for:', selectedDept);
+      console.log('✅ QR Code generated for:', selectedDept, selectedLanguage);
       
     } catch (error) {
       console.error('Error generating QR code:', error);
@@ -211,7 +209,7 @@ function FeedbackFormQR() {
             loading="lazy"
           />
           <p className="qr-hint">
-            Scan with your phone camera to access the {selectedDept} feedback form
+            Scan with your phone camera to access the {selectedDept} feedback form ({LANGUAGE_NAMES[selectedLanguage]})
           </p>
           <a 
             href={qrCode} 

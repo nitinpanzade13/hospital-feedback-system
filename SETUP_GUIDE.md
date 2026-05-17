@@ -76,37 +76,6 @@ APP_URL=http://192.168.x.x:3000
 
 ---
 
-## Step 4: Build Frontend
-
-Before starting Docker, build the frontend once:
-
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-```
-
----
-
-## Step 5: Start with Docker
-
-```bash
-docker-compose up -d
-```
-
-**Check if services are running:**
-```bash
-docker-compose ps
-```
-
-**View logs if there are issues:**
-```bash
-docker-compose logs -f
-```
-
----
-
 ## ✅ Verify Everything Works
 
 Once running, test these URLs:
@@ -119,27 +88,68 @@ Once running, test these URLs:
 
 ---
 
+## ✅ Manual Setup (Shared Python venv)
+
+Use this if you want to run locally without Docker and share one Python environment for backend + AI worker.
+
+### Step A: Create shared venv (Python 3.11)
+```bash
+# From project root
+C:\Users\nitin\AppData\Local\Programs\Python\Python311\python.exe -m venv .venv
+```
+
+### Step B: Install Python dependencies
+```bash
+.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+.venv\Scripts\python.exe -m pip install -r ai_worker\requirements.txt
+```
+
+### Step C: Install PyTorch (CUDA)
+```bash
+.venv\Scripts\python.exe -m pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+```
+
+### Step D: Start services
+```bash
+# Backend
+.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# AI worker (new terminal)
+.venv\Scripts\python.exe ai_worker\worker.py
+
+# Frontend (new terminal)
+cd frontend
+npm install
+npm start
+```
+
+### Step E: Verify GPU
+```bash
+.venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available()); print(torch.version.cuda)"
+```
+
 ## 🔧 Troubleshooting
 
 ### Problem: "Cannot connect to backend"
 - **Solution**: Check MongoDB URL in `.env`
-- **Verify**: `docker-compose logs backend`
 
 ### Problem: "Verification emails not sending"
 - **Solution**: Check Gmail App Password in `.env`
-- **Verify**: `docker-compose logs backend | grep -i email`
 
 ### Problem: "Frontend shows blank page"
-- **Solution**: Rebuild frontend
+- **Solution**: Reinstall frontend dependencies
   ```bash
   cd frontend
-  npm run build
-  cd ..
-  docker-compose restart frontend
+  npm install
+  npm start
   ```
 
 ### Problem: "Port 3000 or 8000 already in use"
-- **Solution**: Change ports in `docker-compose.yml` or stop other services
+- **Solution**: Stop other services or change the port in your run command
+
+### Problem: "CUDA not available" (torch.cuda.is_available() == False)
+- **Solution**: Install CUDA-enabled PyTorch (see Manual Setup Step C)
+- **Verify driver**: `nvidia-smi`
 
 ---
 
@@ -157,9 +167,9 @@ See [.env.example](.env.example) for all available configuration options.
 |------|---------|------|
 | Clone | `git clone ...` | 1 min |
 | Setup `.env` | `cp .env.example .env` + edit | 5 min |
-| Build frontend | `cd frontend && npm run build` | 3 min |
-| Start Docker | `docker-compose up -d` | 2 min |
-| **Total** | | **11 min** |
+| Install deps | `pip install -r ...` + `npm install` | 5 min |
+| Start services | `uvicorn` + `worker.py` + `npm start` | 2 min |
+| **Total** | | **13 min** |
 
 ---
 
@@ -168,6 +178,5 @@ See [.env.example](.env.example) for all available configuration options.
 Refer to:
 - [README.md](README.md) - Project overview
 - [API Documentation](http://localhost:8000/docs) - API endpoints after startup
-- Check Docker logs: `docker-compose logs`
 
 Happy coding! 🎉

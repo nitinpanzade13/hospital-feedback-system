@@ -58,6 +58,29 @@ else:
     logger.info("⚠️  Transformers not available, using lightweight analysis")
 
 
+def merge_keyword_maps(base: Dict[str, List[str]], extra: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    merged = {}
+    for emotion, keywords in base.items():
+        merged[emotion] = list(keywords)
+    for emotion, keywords in extra.items():
+        merged.setdefault(emotion, [])
+        merged[emotion].extend(keywords)
+    return merged
+
+
+def rating_to_emotion(value: str) -> Tuple[str, float]:
+    try:
+        rating = int(value)
+    except Exception:
+        return ("neutral", 0.5)
+
+    if rating <= 2:
+        return ("dissatisfaction", 0.6)
+    if rating == 3:
+        return ("neutral", 0.55)
+    return ("satisfaction", 0.6)
+
+
 class SentimentAnalyzer:
     """
     Multilingual sentiment analysis with fallback support.
@@ -68,6 +91,7 @@ class SentimentAnalyzer:
         """Initialize the sentiment analysis pipeline."""
         self.use_transformers = False
         self.classifier = None
+        self.sentiment_classifier = None
         
         # Emotion labels for classification
         self.emotion_labels = [
@@ -93,22 +117,86 @@ class SentimentAnalyzer:
             "surprise": ["surprised", "unexpected", "shocked", "amazed"],
             "anticipation": ["looking forward", "excited", "expecting"]
         }
+        self.hindi_keywords = {
+            "joy": ["बहुत अच्छा", "शानदार", "अद्भुत", "मुझे बहुत पसंद"],
+            "happiness": ["खुश", "प्रसन्न", "अच्छा लगा"],
+            "satisfaction": [
+                "संतुष्ट",
+                "ठीक",
+                "ठीकठाक",
+                "अच्छा",
+                "प्रभावशाली",
+                "सहायक",
+                "शांत",
+                "सराहना",
+                "समय पर",
+                "स्पष्ट"
+            ],
+            "neutral": ["सामान्य", "औसत", "ठीक है"],
+            "dissatisfaction": ["खराब", "असंतुष्ट", "निराश", "बुरा"],
+            "frustration": ["झुंझलाहट", "परेशान", "उलझन", "देर", "धीमा"],
+            "anger": ["गुस्सा", "क्रोधित", "नाराज़"],
+            "sadness": ["दुखी", "उदास"],
+            "fear": ["डर", "घबराहट", "चिंता"],
+            "trust": ["विश्वास", "भरोसा", "आश्वस्त"],
+            "surprise": ["हैरान", "अप्रत्याशित"],
+            "anticipation": ["उम्मीद", "प्रतीक्षा", "इंतज़ार"]
+        }
+        self.marathi_keywords = {
+            "joy": ["खूप छान", "उत्कृष्ट", "अतिशय"],
+            "happiness": ["आनंदी", "खुश"],
+            "satisfaction": [
+                "समाधानकारक",
+                "समाधानी",
+                "ठीक",
+                "उपयुक्त",
+                "मदतीचा",
+                "शांत",
+                "वेळेवर",
+                "स्पष्ट"
+            ],
+            "neutral": ["सामान्य", "सरासरी"],
+            "dissatisfaction": ["खराब", "असंतुष्ट", "निराश"],
+            "frustration": ["चिडचिड", "त्रास", "उशीर", "मंद"],
+            "anger": ["राग", "रागावले"],
+            "sadness": ["दुःखी", "उदास"],
+            "fear": ["भीती", "चिंता"],
+            "trust": ["विश्वास", "भरवसा", "निश्चित"],
+            "surprise": ["आश्चर्य"],
+            "anticipation": ["अपेक्षा", "प्रतीक्षा"]
+        }
         
         if HAS_TRANSFORMERS and not USE_DEMO_MODE:
             try:
-                logger.info("Loading transformer model (this may take 60-90 seconds)...")
-                self.classifier = pipeline(
-                    "zero-shot-classification",
-                    model="facebook/bart-large-mnli",
+                logger.info("Loading multilingual sentiment model (this may take 60-90 seconds)...")
+                self.sentiment_classifier = pipeline(
+                    "sentiment-analysis",
+                    model="cardiffnlp/twitter-xlm-roberta-base-sentiment",
                     device=0 if DEVICE == "cuda" else -1
                 )
                 self.use_transformers = True
-                logger.info("✓ Transformer model loaded successfully")
+                logger.info("✓ Multilingual sentiment model loaded successfully")
             except Exception as e:
-                logger.warning(f"⚠️  Failed to load transformer model: {type(e).__name__}: {str(e)[:100]}")
-                logger.info("Falling back to lightweight keyword-based analysis...")
-                self.use_transformers = False
-                self.classifier = None
+                logger.warning(
+                    f"⚠️  Failed to load sentiment model: {type(e).__name__}: {str(e)[:100]}"
+                )
+                logger.info("Falling back to zero-shot classification...")
+                try:
+                    self.classifier = pipeline(
+                        "zero-shot-classification",
+                        model="facebook/bart-large-mnli",
+                        device=0 if DEVICE == "cuda" else -1
+                    )
+                    self.use_transformers = True
+                    logger.info("✓ Zero-shot model loaded successfully")
+                except Exception as e:
+                    logger.warning(
+                        f"⚠️  Failed to load transformer model: {type(e).__name__}: {str(e)[:100]}"
+                    )
+                    logger.info("Falling back to lightweight keyword-based analysis...")
+                    self.use_transformers = False
+                    self.classifier = None
+                    self.sentiment_classifier = None
         
         if not self.use_transformers:
             logger.info("✓ Using lightweight keyword-based analysis")
@@ -130,8 +218,47 @@ class SentimentAnalyzer:
 
             text_lower = text.lower()
             
+            # Build keyword map for language overrides
+            keyword_map = self.emotion_keywords
+            if language in {"hi", "hindi"}:
+                keyword_map = merge_keyword_maps(self.emotion_keywords, self.hindi_keywords)
+            elif language in {"mr", "marathi"}:
+                keyword_map = merge_keyword_maps(self.emotion_keywords, self.marathi_keywords)
+
+            def count_hits(keywords: List[str]) -> int:
+                return sum(1 for keyword in keywords if keyword in text_lower)
+
+            positive_hits = count_hits(keyword_map.get("satisfaction", [])) + count_hits(
+                keyword_map.get("joy", [])
+            ) + count_hits(keyword_map.get("happiness", []))
+            negative_hits = count_hits(keyword_map.get("dissatisfaction", [])) + count_hits(
+                keyword_map.get("frustration", [])
+            ) + count_hits(keyword_map.get("anger", [])) + count_hits(keyword_map.get("sadness", []))
+
             # Use transformer if available
-            if self.use_transformers:
+            if self.use_transformers and self.sentiment_classifier:
+                result = self.sentiment_classifier(text)[0]
+                label = result.get("label", "neutral").lower()
+                confidence = float(result.get("score", 0.5))
+                if label == "positive":
+                    emotion = "satisfaction"
+                elif label == "negative":
+                    emotion = "dissatisfaction"
+                else:
+                    emotion = "neutral"
+
+                # Keyword overrides for Hindi/Marathi to avoid false negatives
+                if positive_hits > negative_hits:
+                    return ("satisfaction", max(confidence, 0.65))
+                if negative_hits > positive_hits:
+                    return ("dissatisfaction", max(confidence, 0.6))
+
+                logger.debug(
+                    f"Analyzed (sentiment): '{text[:50]}...' → {emotion} ({confidence:.1%})"
+                )
+                return (emotion, confidence)
+
+            if self.use_transformers and self.classifier:
                 result = self.classifier(
                     text,
                     self.emotion_labels,
@@ -139,12 +266,18 @@ class SentimentAnalyzer:
                 )
                 emotion = result['labels'][0]
                 confidence = float(result['scores'][0])
-                logger.debug(f"Analyzed (transformer): '{text[:50]}...' → {emotion} ({confidence:.1%})")
+                if positive_hits > negative_hits:
+                    return ("satisfaction", max(confidence, 0.65))
+                if negative_hits > positive_hits:
+                    return ("dissatisfaction", max(confidence, 0.6))
+                logger.debug(
+                    f"Analyzed (zero-shot): '{text[:50]}...' → {emotion} ({confidence:.1%})"
+                )
                 return (emotion, confidence)
             
             # Fallback: rule-based analysis
             emotion_scores = {}
-            for emotion, keywords in self.emotion_keywords.items():
+            for emotion, keywords in keyword_map.items():
                 score = sum(
                     1 for keyword in keywords 
                     if keyword in text_lower
@@ -179,6 +312,61 @@ class SentimentAnalyzer:
             List of feedbacks with emotion and confidence added
         """
         results = []
+        name_fields = {
+            "Patient Name",
+            "मरीज़ का नाम",
+            "रोगी का नाम",
+            "मरीज का नाम",
+            "रुग्णाचे नाव"
+        }
+
+        def is_content_answer(question: str, answer: str) -> bool:
+            if not question or question in name_fields:
+                return False
+
+            if answer is None:
+                return False
+
+            text = str(answer).strip()
+            if not text:
+                return False
+
+            # Allow numeric-only answers (rating questions)
+            if text.isdigit():
+                return True
+
+            # Require at least one letter for non-numeric answers
+            if not text.isdigit() and not any(ch.isalpha() for ch in text):
+                return False
+
+            return True
+
+        def question_weight(question: str, answer: str) -> float:
+            if not question:
+                return 1.0
+
+            answer_text = str(answer).strip()
+            if answer_text.isdigit():
+                return 2.0
+
+            q_lower = question.lower()
+            improvement_markers = [
+                "improve",
+                "improvement",
+                "better",
+                "could be",
+                "change",
+                "सुधार",
+                "बेहतर",
+                "कमी",
+                "तेज़",
+                "विकास"
+            ]
+            if any(marker in q_lower for marker in improvement_markers):
+                return 0.5
+
+            return 1.0
+
         for feedback in feedbacks:
             # Analyze all responses for comprehensive emotion detection
             all_responses = feedback.get('all_responses', {})
@@ -186,18 +374,22 @@ class SentimentAnalyzer:
             # Combine all text for analysis
             combined_text = " ".join([
                 f"{k}: {v}" 
-                for k, v in all_responses.items() 
-                if k not in ['Patient Name', 'Header']  # Skip non-content fields
+                for k, v in all_responses.items()
+                if is_content_answer(k, v)
             ])
             
             # Also analyze individual responses for detailed breakdown
             individual_emotions = {}
             for question, answer in all_responses.items():
-                if question not in ['Patient Name', 'Header'] and answer:
-                    emotion, conf = self.analyze(
-                        str(answer),
-                        feedback.get('language', 'en')
-                    )
+                if is_content_answer(question, answer):
+                    answer_text = str(answer).strip()
+                    if answer_text.isdigit():
+                        emotion, conf = rating_to_emotion(answer_text)
+                    else:
+                        emotion, conf = self.analyze(
+                            answer_text,
+                            feedback.get('language', 'en')
+                        )
                     individual_emotions[question] = {
                         'emotion': emotion,
                         'confidence': conf
@@ -205,18 +397,19 @@ class SentimentAnalyzer:
             
             # Calculate overall emotion from most frequent emotion in individual responses
             if individual_emotions:
-                emotion_counts = {}
-                total_confidence = 0
+                emotion_scores = {}
+                total_weight = 0.0
                 
                 for question, analysis in individual_emotions.items():
                     emotion = analysis['emotion']
                     confidence = analysis['confidence']
-                    emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
-                    total_confidence += confidence
+                    weight = question_weight(question, all_responses.get(question))
+                    emotion_scores[emotion] = emotion_scores.get(emotion, 0.0) + (confidence * weight)
+                    total_weight += weight
                 
                 # Get the most frequent emotion
-                overall_emotion = max(emotion_counts, key=emotion_counts.get)
-                overall_confidence = total_confidence / len(individual_emotions)
+                overall_emotion = max(emotion_scores, key=emotion_scores.get)
+                overall_confidence = emotion_scores[overall_emotion] / (total_weight or 1.0)
             else:
                 # Fallback if no individual emotions
                 overall_emotion = "neutral"

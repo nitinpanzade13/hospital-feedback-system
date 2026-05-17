@@ -20,29 +20,72 @@
 // ==========================================
 
 export const DEPARTMENT_FORM_URLS = {
-  "Emergency": "https://docs.google.com/forms/d/e/1FAIpQLSePB5SMiD2Ar7auhl46GTq6AfZpAf5CygFiaNOwZFif241F4w/viewform",
-  "ICU": "https://docs.google.com/forms/d/e/1FAIpQLSfljGTuTRKgVPbRsye_Hf6eGhDpsahLqPgHldaI5JwcwQx5uw/viewform",
-  "Cardiology": "https://docs.google.com/forms/d/e/1FAIpQLSc-0YNL2k6Y1WkMZWCPb6d4o-RS32zIJI9E0QvOKZw9cSUQQQ/viewform",
-  "Pediatrics": "https://docs.google.com/forms/d/e/1FAIpQLScJuwXnWCZrIMld5EPpotWTzsDfKH5yOtPhcZZfOdldJqT6gA/viewform",
-  "Oncology": "https://docs.google.com/forms/d/e/1FAIpQLSd8ZG_y6LbAkVOJikfqGbVqcK92aNxl6PX2d5mt6NxhB8stoA/viewform"
+  "Emergency": {
+    "english": "https://docs.google.com/forms/d/e/1FAIpQLSePB5SMiD2Ar7auhl46GTq6AfZpAf5CygFiaNOwZFif241F4w/viewform",
+    "hindi": "https://docs.google.com/forms/d/e/1FAIpQLScjI80Gl-rYAsxTHB8N8GMGAiz0_CjN0EvA6V5MZ8g1uGhV2g/viewform",
+    "marathi": "https://docs.google.com/forms/d/e/1FAIpQLSfkNlSm4b33-Uor3bgazCmJnnRm774YznnhCdN9zjQ81LLHWQ/viewform"
+  },
+  "ICU": {
+    "english": "https://docs.google.com/forms/d/e/1FAIpQLSfljGTuTRKgVPbRsye_Hf6eGhDpsahLqPgHldaI5JwcwQx5uw/viewform",
+    "hindi": "https://docs.google.com/forms/d/e/1FAIpQLSfb4Ql4VBVx-YRpOyg_yRypzBDkUiPbbsGnd507aJY0uIPesA/viewform",
+    "marathi": "https://docs.google.com/forms/d/e/1FAIpQLSeC3EAfc7CLtQLToJQEywhZVcFQakp_U0PL2MSmntUUKLOQHg/viewform"
+  },
+  "Cardiology": {
+    "english": "https://docs.google.com/forms/d/e/1FAIpQLSc-0YNL2k6Y1WkMZWCPb6d4o-RS32zIJI9E0QvOKZw9cSUQQQ/viewform",
+    "hindi": "https://docs.google.com/forms/d/e/1FAIpQLSd5t0OMSwGy14wQVBwTSjMPzLVAPtnqOpozh6_SCShnGsH54g/viewform",
+    "marathi": "https://docs.google.com/forms/d/e/1FAIpQLSd1VuuV04Hjv7_o-79j3MFIYnpz1rfS7-Q1AXEinf1_OcHKpA/viewform"
+  },
+  "Pediatrics": {
+    "english": "https://docs.google.com/forms/d/e/1FAIpQLScJuwXnWCZrIMld5EPpotWTzsDfKH5yOtPhcZZfOdldJqT6gA/viewform",
+    "hindi": "https://docs.google.com/forms/d/e/1FAIpQLSfuQgg3ypqJP2d4z3ceUMINnVH--eAVTt9GdWXQvftWfQlbvg/viewform",
+    "marathi": "https://docs.google.com/forms/d/e/1FAIpQLSf-0nzh0BlQutrpms3Hi-_Z105FNPACo1CxfaHyiGqEwLbpkA/viewform"
+  },
+  "Oncology": {
+    "english": "https://docs.google.com/forms/d/e/1FAIpQLSd8ZG_y6LbAkVOJikfqGbVqcK92aNxl6PX2d5mt6NxhB8stoA/viewform",
+    "hindi": "https://docs.google.com/forms/d/e/1FAIpQLScVC8LlibfFKZUMtJF7ggSzTOnrJX-6H8iyCDBB7salAIufFQ/viewform",
+    "marathi": "https://docs.google.com/forms/d/e/1FAIpQLSdC_i96_fRqnd0q07AxZaotW2eTHvbsyEJ9xP79j5tOYOtOHA/viewform"
+  }
 };
 
+const REQUIRED_DEPTS = ["Emergency", "ICU", "Cardiology", "Pediatrics", "Oncology"];
+const REQUIRED_LANGS = ["english", "hindi", "marathi"];
+
+function isPlaceholder(value) {
+  if (!value) {
+    return true;
+  }
+  return value.includes('REPLACE_') || value.includes('YOUR_');
+}
+
+export function getFormUrl(department, language = 'english') {
+  if (!department) {
+    return '';
+  }
+
+  const deptConfig = DEPARTMENT_FORM_URLS[department];
+  if (!deptConfig) {
+    return '';
+  }
+
+  return deptConfig[language] || '';
+}
+
 // Function to redirect user to the appropriate form
-export function redirectToForm(department) {
+export function redirectToForm(department, language = 'english') {
   if (!department) {
     console.error('❌ No department specified');
     return false;
   }
   
-  const formUrl = DEPARTMENT_FORM_URLS[department];
+  const formUrl = getFormUrl(department, language);
   
   if (!formUrl) {
-    console.error('❌ No form found for department: ' + department);
+    console.error('❌ No form found for department/language: ' + department + ' / ' + language);
     console.warn('Available departments: ' + Object.keys(DEPARTMENT_FORM_URLS).join(', '));
     return false;
   }
   
-  console.log('📍 Redirecting to ' + department + ' form');
+  console.log('📍 Redirecting to ' + department + ' form (' + language + ')');
   console.log('Form URL: ' + formUrl);
   
   // Redirect to the form
@@ -52,14 +95,20 @@ export function redirectToForm(department) {
 
 // Function to check if all forms are configured
 export function validateConfiguration() {
-  const requiredDepts = ["Emergency", "ICU", "Cardiology", "Pediatrics", "Oncology"];
   const missingForms = [];
   
-  for (let dept of requiredDepts) {
-    const url = DEPARTMENT_FORM_URLS[dept];
-    
-    if (!url || url.includes('YOUR_')) {
-      missingForms.push(dept);
+  for (let dept of REQUIRED_DEPTS) {
+    const deptConfig = DEPARTMENT_FORM_URLS[dept];
+    if (!deptConfig) {
+      missingForms.push(dept + ' (all languages)');
+      continue;
+    }
+
+    for (let lang of REQUIRED_LANGS) {
+      const url = deptConfig[lang];
+      if (isPlaceholder(url)) {
+        missingForms.push(dept + ' / ' + lang);
+      }
     }
   }
   

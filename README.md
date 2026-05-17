@@ -87,13 +87,7 @@ Hospital Feedback Project/
 
 ### Prerequisites
 
-#### Option 1: Docker (Recommended - Easiest)
-- Docker Desktop ([Download](https://www.docker.com/products/docker-desktop))
-- Docker Compose (usually included with Docker Desktop)
-- MongoDB Atlas account (free tier available)
-
-#### Option 2: Local Setup
-- Python 3.9+
+- Python 3.11
 - Node.js 16+
 - MongoDB Atlas account
 - NVIDIA GPU (6GB+ VRAM) for AI Worker
@@ -101,33 +95,9 @@ Hospital Feedback Project/
 
 ---
 
-## 📦 Setup with Docker (Recommended)
+## 📦 Setup (Local)
 
-### Quick Setup (Automated)
-
-**Windows:**
-```bash
-setup.bat
-```
-
-**Mac/Linux:**
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-The script will:
-1. Create `.env` file from template
-2. Check Docker installation
-3. Build frontend
-4. Start all services
-5. Display access URLs
-
----
-
-### Manual Setup
-
-**1. Clone and Configure**
+### 1. Clone and Configure
 
 ```bash
 # Clone the repository
@@ -158,84 +128,41 @@ cp .env.example .env
 4. Copy the connection string: `mongodb+srv://username:password@...`
 5. Replace username, password, and add to `MONGODB_URL` in `.env`
 
-### 4. Run with Docker
-
-```bash
-# Start all services (Backend, Frontend, AI Worker)
-docker-compose up -d
-
-# Check if containers are running
-docker-compose ps
-
-# View logs
-docker-compose logs -f
-
-# Access the application:
-# Frontend: http://localhost:3000
-# Backend API Docs: http://localhost:8000/docs
-```
-
-### 5. First Login
+### 4. First Login
 - Email: `superadmin@hospital.com` (default from `.env`)
 - Password: `SuperAdmin@123` (default from `.env`)
 - ⚠️ Change these credentials immediately in production!
 
-### Useful Docker Commands
+## 💻 Local Setup
+
+### 1. Create shared venv
 
 ```bash
-# Stop all services
-docker-compose down
-
-# Restart a specific service
-docker-compose restart backend
-docker-compose restart frontend
-
-# View logs for a service
-docker-compose logs backend -f
-
-# Rebuild images after code changes
-docker-compose up -d --build
+python -m venv .venv
 ```
 
----
-
-## 💻 Local Setup (Alternative)
-
-### 1. Clone Repository
+### 2. Install backend + worker dependencies
 
 ```bash
-git clone https://github.com/your-username/hospital-feedback-system.git
-cd hospital-feedback-system
-
-# Copy environment file
-cp .env.example .env
-# Edit .env with your credentials
+.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+.venv\Scripts\python.exe -m pip install -r ai_worker\requirements.txt
 ```
 
-### 2. Backend Setup
+### 3. Install PyTorch (CUDA)
 
 ```bash
-cd backend
+.venv\Scripts\python.exe -m pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+```
 
-# Create virtual environment
-python -m venv venv
+### 4. Backend Setup
 
-# Activate virtual environment
-# Windows:
-.\venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run FastAPI server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```bash
+.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **API Documentation:** http://localhost:8000/docs
 
-### 3. Frontend Setup (New Terminal)
+### 5. Frontend Setup (New Terminal)
 
 ```bash
 cd frontend
@@ -249,25 +176,13 @@ npm start
 
 **Dashboard:** http://localhost:3000
 
-### 4. AI Worker Setup (Optional - New Terminal)
+### 6. AI Worker Setup (Optional - New Terminal)
 
 ```bash
 cd ai_worker
 
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-.\venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies (may take 5-10 minutes)
-pip install -r requirements.txt
-
 # Run worker
-python worker.py
+.venv\Scripts\python.exe ai_worker\worker.py
 ```
 
 ---
@@ -465,21 +380,16 @@ Response:
 
 ## 🤖 AI Model Details
 
-### XLM-RoBERTa (Multilinguality)
-- **Model:** `facebook/bart-large-mnli`
-- **Type:** Zero-shot classification
-- **Languages Supported:** 100+ languages including:
-  - English, Hindi, Spanish, French, German, Chinese, Arabic, etc.
-- **Emotion Categories:**
-  - Positive: joy, happiness, satisfaction, trust, anticipation
-  - Neutral: neutral, surprise
-  - Negative: dissatisfaction, frustration, anger, sadness, fear
+### Multilingual Sentiment
+- **Primary Model:** `cardiffnlp/twitter-xlm-roberta-base-sentiment`
+- **Type:** Multilingual sentiment classification
+- **Mapping:** positive→satisfaction, negative→dissatisfaction, neutral→neutral
+- **Languages Supported:** 100+ languages including English, Hindi, Marathi
 
 ### Processing Flow
 ```
-Raw Feedback → Tokenization → Model Inference → Emotion + Confidence
-(Any language)    (Multilingual)    (60GB+ token    (Standardized
-                                     vocabulary)     categories)
+Raw Feedback → Tokenization → Sentiment Inference → Emotion + Confidence
+(Any language)    (Multilingual)       (XLM-R)           (Mapped labels)
 ```
 
 ### Performance
@@ -618,30 +528,14 @@ aiohttp.ClientConnectorError
 **Model Download Stalled**
 ```bash
 # Manually download model
-python -c "from transformers import pipeline; pipeline('zero-shot-classification', model='facebook/bart-large-mnli')"
+python -c "from transformers import pipeline; pipeline('sentiment-analysis', model='cardiffnlp/twitter-xlm-roberta-base-sentiment')"
 ```
 
 ---
 
 ## 🚢 Deployment Guide
 
-### Option 1: Docker (Recommended)
-
-**Create `Dockerfile` for backend:**
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY backend/requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY backend/main.py .
-ENV MONGODB_URL=mongodb+srv://...
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Option 2: Cloud Platforms
+### Option 1: Cloud Platforms
 
 #### **Azure App Service (Backend)**
 ```bash
@@ -659,7 +553,7 @@ firebase deploy --only hosting
 - SSH and install CUDA/PyTorch
 - Deploy worker.py
 
-### Option 3: On-Premises
+### Option 2: On-Premises
 
 #### **Backend: Windows Service**
 ```batch
@@ -722,7 +616,7 @@ npm run build
 - **FastAPI Documentation:** https://fastapi.tiangolo.com/
 - **Motor (Async MongoDB):** https://motor.readthedocs.io/
 - **React Documentation:** https://react.dev/
-- **XLM-RoBERTa:** https://huggingface.co/facebook/bart-large-mnli
+- **XLM-RoBERTa Sentiment:** https://huggingface.co/cardiffnlp/twitter-xlm-roberta-base-sentiment
 - **MongoDB Atlas:** https://www.mongodb.com/cloud/atlas
 - **Google Apps Script Docs:** https://developers.google.com/apps-script
 

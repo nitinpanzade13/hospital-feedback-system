@@ -14,7 +14,7 @@ import io
 import urllib.parse
 import httpx
 import asyncio
-from forms_config import get_form_id, DEPARTMENT_FORM_CONFIG
+from forms_config import get_form_config
 from auth_routes import router as auth_router
 from admin_routes import router as admin_router
 from dependencies import set_database
@@ -269,39 +269,55 @@ async def add_question_to_google_form(department: str, question_dict: dict):
         question_dict: Question details
     """
     try:
-        # Get form configuration
-        form_config = DEPARTMENT_FORM_CONFIG.get(department)
-        if not form_config:
-            print(f"❌ No form configuration found for {department}")
-            return
-        
-        form_id = form_config.get("form_id")
-        backend_url = form_config.get("backend_url")
-        
-        # Prepare the question data
-        payload = {
-            "question_text": question_dict.get("question_text", ""),
-            "question_type": question_dict.get("question_type", "short_answer"),
-            "required": question_dict.get("required", True),
-            "options": question_dict.get("options", None),
-            "department": department,
-            "form_id": form_id
-        }
-        
-        print(f"📤 Sending question to Google Form for {department}: {payload['question_text']}")
-        
-        # Call Google Apps Script endpoint (if available)
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{backend_url}/api/forms/{department}/add-question",
-                json=payload,
-                timeout=5.0
+        languages = ["english", "hindi", "marathi"]
+
+        for language in languages:
+            form_config = get_form_config(department, language)
+            if not form_config:
+                print(f"❌ No form configuration found for {department} ({language})")
+                continue
+
+            form_id = form_config.get("form_id")
+            backend_url = form_config.get("backend_url")
+
+            if not backend_url or "REPLACE_" in backend_url:
+                print(f"⚠️ Missing backend URL for {department} ({language})")
+                continue
+
+            question_text = question_dict.get("question_text", "")
+            if language != "english":
+                translations = question_dict.get("translations") or {}
+                question_text = translations.get(language, question_text)
+
+            payload = {
+                "question_text": question_text,
+                "question_type": question_dict.get("question_type", "short_answer"),
+                "required": question_dict.get("required", True),
+                "options": question_dict.get("options", None),
+                "department": department,
+                "form_id": form_id,
+                "language": language
+            }
+
+            print(
+                f"📤 Sending question to Google Form for {department} ({language}): "
+                f"{payload['question_text']}"
             )
-            
-            if response.status_code in [200, 201]:
-                print(f"✅ Question added to Google Form: {response.json()}")
-            else:
-                print(f"⚠️ Google Form update response: {response.status_code} - {response.text}")
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{backend_url}/api/forms/{department}/add-question",
+                    json=payload,
+                    timeout=5.0
+                )
+
+                if response.status_code in [200, 201]:
+                    print(f"✅ Question added to Google Form ({language}): {response.json()}")
+                else:
+                    print(
+                        f"⚠️ Google Form update response ({language}): "
+                        f"{response.status_code} - {response.text}"
+                    )
                 
     except Exception as e:
         print(f"❌ Error adding question to Google Form: {e}")

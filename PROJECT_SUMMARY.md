@@ -96,13 +96,11 @@ The Hospital Feedback System is an end-to-end solution designed to capture, proc
 │     │  • Handle multilingual text (Hindi, Marathi support)  │         │
 │     │                                                         │         │
 │     │ STEP 2: Emotion Detection                             │         │
-│     │  Primary Model: Facebook BART-Large-MNLI              │         │
-│     │  • Zero-shot classification                           │         │
-│     │  • 12 emotion labels:                                 │         │
-│     │    - Positive: joy, happiness, satisfaction, trust    │         │
-│     │    - Neutral: neutral, anticipation, surprise         │         │
-│     │    - Negative: anger, sadness, fear, frustration      │         │
-│     │    - Other: dissatisfaction                           │         │
+│     │  Primary Model: XLM-RoBERTa Sentiment (CardiffNLP)     │         │
+│     │  • Multilingual sentiment classification              │         │
+│     │  • Labels: positive / neutral / negative              │         │
+│     │  • Mapping: positive→satisfaction,                    │         │
+│     │            negative→dissatisfaction, neutral→neutral  │         │
 │     │  • Returns: (emotion_label, confidence_score)         │         │
 │     │                                                         │         │
 │     │ STEP 3: Question-wise Analysis                        │         │
@@ -120,7 +118,7 @@ The Hospital Feedback System is an end-to-end solution designed to capture, proc
 │     │                                                         │         │
 │     │ FALLBACK: Keyword-based analysis                      │         │
 │     │  • Used if GPU unavailable or transformers fail       │         │
-│     │  • Keyword dictionary for 12 emotions                 │         │
+│     │  • Keyword dictionary (English/Hindi/Marathi)          │         │
 │     │  • Scans text for emotional keywords                  │         │
 │     │  • Quick, lightweight alternative                     │         │
 │     │                                                         │         │
@@ -201,12 +199,10 @@ The Hospital Feedback System is an end-to-end solution designed to capture, proc
 - **Purpose**: Generate scannable QR codes for each hospital department
 - **Output**: Links to department-specific Google Forms
 - **Location**: Backend endpoint `/api/qr-code/{department}`
-
-#### **Language Selector UI**
-- **Languages**: English, हिन्दी (Hindi), मराठी (Marathi)
-- **Technology**: React buttons with state management
-- **Purpose**: Patients select language before form submission
-- **Storage**: Passed to Google Form as hidden field
+| Technology | Purpose |
+|-----------|---------|
+| Nginx | Reverse proxy |
+| Google Apps Script | Webhook automation |
 - **Component**: `FeedbackFormQR.js`
 
 #### **Google Forms**
@@ -220,65 +216,66 @@ The Hospital Feedback System is an end-to-end solution designed to capture, proc
   - Open-ended feedback
   - Language selection (hidden)
   - All department-specific questions
-
----
-
-### **2. INGESTION & STORAGE LAYER**
-
-#### **Google Apps Script (Webhook)**
-- **Technology**: JavaScript (Google Apps Script runtime)
-- **Trigger**: On form submission
-- **Function**: `onFormSubmit(e)`
-- **Workflow**:
-  ```javascript
-  1. Extract form response data
-  2. Get timestamp
-  3. Build feedback object
-  4. POST to backend: /api/feedback
-  5. Log success/error
+### **Production Deployment**
+```
+Production environment details will be provided separately.
+```
   ```
 - **Files**:
   - `FORM_SCRIPTS_CARDIOLOGY_SYNC_INIT.gs`
   - `FORM_SCRIPTS_EMERGENCY_SYNC_INIT.gs`
   - `FORM_SCRIPTS_ICU_SYNC_INIT.gs`
-  - `FORM_SCRIPTS_ONCOLOGY_SYNC_INIT.gs`
-  - `FORM_SCRIPTS_PEDIATRICS_SYNC_INIT.gs`
+### **Quick Start**
+```bash
+# Clone repository
+git clone <repo-url>
+cd "Hospital Feedback Project"
 
-#### **FastAPI Backend**
-- **Technology**: Python 3.11, FastAPI 0.104.1, Motor (async MongoDB driver)
-- **Port**: 8000 (production) / 8001 (internal)
-- **Key Endpoints**:
-  
-  | Endpoint | Method | Purpose |
-  |----------|--------|---------|
-  | `/api/feedback` | POST | Receive form submission |
-  | `/api/feedback` | GET | Retrieve feedback (with filters) |
-  | `/api/feedback/{id}` | GET | Get single feedback |
-  | `/api/feedback/{id}` | PUT | Update feedback |
-  | `/api/pending-feedback` | GET | Get unprocessed feedback |
-  | `/api/departments` | GET | List departments |
+# Configure .env
+cp config/.env.example .env
+# Edit .env with MongoDB Atlas credentials
+
+# Create shared venv
+python -m venv .venv
+
+# Install Python dependencies
+.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.venv\Scripts\python.exe -m pip install -r ai_worker/requirements.txt
+
+# Start backend
+.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Start AI worker (separate terminal)
+.venv\Scripts\python.exe ai_worker/worker.py
+
+# Start frontend (separate terminal)
+cd frontend && npm start
+```
   | `/api/departments/{dept}/questions` | GET | Get dept questions (with language param) |
   | `/api/departments/{dept}/questions` | POST | Add question |
   | `/api/qr-code/{department}` | GET | Generate QR code |
   | `/api/test/populate-detailed-demo-data` | POST | Seed test data |
+### **Manual Setup**
+```bash
+# Create shared venv
+python -m venv .venv
 
-- **Middleware**: CORS enabled for React dashboard (localhost:3000, deployment URLs)
-- **Authentication**: Token-based JWT (optional for admin endpoints)
-- **Rate Limiting**: Standard per-IP limits
+# Install Python dependencies
+.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.venv\Scripts\python.exe -m pip install -r ai_worker/requirements.txt
 
-#### **MongoDB Atlas (Cloud Database)**
-- **Hosting**: MongoDB Atlas (free/paid tiers)
-- **Collections**:
-  
-  | Collection | Purpose | Indexes |
-  |-----------|---------|---------|
-  | `feedback` | All submissions | status, department, timestamp |
-  | `department_questions` | Question templates | department_name |
-  | `departments` | Hospital departments | name |
-  | `processing_logs` | AI worker logs | timestamp |
+# Install Node dependencies
+cd frontend && npm install
 
-- **Data Retention**: All data persisted indefinitely
-- **Backup**: MongoDB Atlas automatic backup (3-day retention)
+# Start backend
+.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Start AI worker (separate terminal)
+.venv\Scripts\python.exe ai_worker/worker.py
+
+# Start frontend (separate terminal)
+cd frontend && npm start
+```
 
 ---
 
@@ -289,36 +286,23 @@ The Hospital Feedback System is an end-to-end solution designed to capture, proc
 - **Execution**: GPU-accelerated (NVIDIA CUDA 11.8+)
 - **Memory**: Requires 6GB+ VRAM
 - **File**: `ai_worker/worker.py`
-- **Deployment**: Local machine, Docker container, or Cloud GPU
+- **Deployment**: Local machine or Cloud GPU
 
 #### **Sentiment Analysis Pipeline**
 
 **Model Architecture:**
 ```
-Primary Model: Facebook BART-Large-MNLI
-├─ Type: Transformer-based Zero-shot Classification
-├─ Parameters: 400M
-├─ Training: Pre-trained on MNLI dataset (170K examples)
-├─ Multilingual Support: XLM-RoBERTa variant available
+Primary Model: CardiffNLP XLM-RoBERTa Sentiment
+├─ Type: Multilingual sentiment classification
+├─ Labels: positive / neutral / negative
+├─ Mapping: positive→satisfaction, negative→dissatisfaction, neutral→neutral
+├─ Multilingual Support: 100+ languages (Hindi, Marathi, English)
 └─ Inference Speed: ~100-500ms per feedback (GPU)
 
-Emotion Labels (12 classes):
-├─ Positive (4):
-│  ├─ "joy"
-│  ├─ "happiness"
-│  ├─ "satisfaction"
-│  └─ "trust"
-├─ Negative (4):
-│  ├─ "anger"
-│  ├─ "sadness"
-│  ├─ "fear"
-│  └─ "frustration"
-├─ Neutral (2):
-│  ├─ "neutral"
-│  └─ "dissatisfaction"
-└─ Other (2):
-   ├─ "surprise"
-   └─ "anticipation"
+Fallback Model: Facebook BART-Large-MNLI
+├─ Type: Zero-shot classification
+├─ Labels: 12 emotion classes (joy, satisfaction, dissatisfaction, etc.)
+└─ Used only if sentiment model fails to load
 ```
 
 **Processing Steps:**
@@ -330,20 +314,22 @@ Emotion Labels (12 classes):
    - Multilingual text support (Hindi/Marathi UTF-8)
 
 2. **Main Analysis**
-   - Feed text to BART classifier
-   - Get emotion with highest probability
+   - Feed text to multilingual sentiment model
+   - Map positive/neutral/negative to satisfaction/neutral/dissatisfaction
+   - Apply keyword overrides for Hindi/Marathi to fix false negatives
    - Confidence score (0.0-1.0)
    - Return top result
 
 3. **Question-wise Breakdown**
    - Analyze each response in `all_responses`
    - Store individual emotions in `detailed_analysis`
-   - Average confidence across responses
-   - Identify which questions have negative sentiment
+   - Weight rating questions higher (1-5 scale)
+   - Weight "improvement" questions lower to avoid skew
+   - Aggregate weighted confidence across responses
 
 4. **Fallback (CPU Mode)**
    - Keyword-based emotion detection
-   - Dictionary for each emotion class
+   - English/Hindi/Marathi keyword dictionaries
    - Quick rule-based matching
    - Lower accuracy but 24/7 availability
 
@@ -355,7 +341,7 @@ Input Feedback (Hindi):
 
 Processing:
 1. Tokenize & embed text
-2. BART classification
+2. Sentiment classification
 3. Top emotion: "satisfaction" (0.89)
 4. Alternative: "dissatisfaction" (0.78)
 
@@ -518,10 +504,10 @@ GET /api/departments/{dept}/questions?language=hindi
 ```
 
 **AI Analysis:**
-- Model: XLM-RoBERTa (supports 100+ languages)
+- Model: XLM-RoBERTa Sentiment (supports 100+ languages)
 - Handles multilingual text seamlessly
-- No language-specific preprocessing
-- Single emotion output (language-agnostic)
+- Keyword overrides for Hindi/Marathi
+- Single emotion output mapped to satisfaction/neutral/dissatisfaction
 
 **Dashboard Display:**
 - Website: Always English (settings, navigation, labels)
@@ -560,8 +546,8 @@ GET /api/departments/{dept}/questions?language=hindi
 |-----------|---------|---------|
 | PyTorch | 2.1.0 | Deep learning framework |
 | Transformers | 4.35.0 | HuggingFace models |
-| XLM-RoBERTa | - | Multilingual embedding |
-| BART | - | Zero-shot classification |
+| XLM-RoBERTa Sentiment | - | Multilingual sentiment model |
+| BART | - | Zero-shot fallback classification |
 | CUDA | 11.8+ | GPU acceleration |
 
 ### **Database**
@@ -574,8 +560,6 @@ GET /api/departments/{dept}/questions?language=hindi
 ### **DevOps & Deployment**
 | Technology | Purpose |
 |-----------|---------|
-| Docker | Containerization |
-| Docker Compose | Multi-container orchestration |
 | Nginx | Reverse proxy |
 | Google Apps Script | Webhook automation |
 
@@ -648,21 +632,13 @@ Local Machine:
 └─ MongoDB Atlas (cloud)
 ```
 
-### **Production Deployment (Docker Compose)**
+### **Production Deployment**
 ```
-Docker Host:
-├─ Container 1: Backend (FastAPI, port 8000)
-├─ Container 2: Frontend (Nginx, port 80)
-├─ Container 3: AI Worker (GPU passthrough)
+Production Host:
+├─ Backend (FastAPI, port 8000)
+├─ Frontend (Nginx, port 80)
+├─ AI Worker (GPU)
 └─ MongoDB Atlas (cloud)
-
-docker-compose.yml handles:
-- Image building
-- Port mapping
-- Volume mounting
-- Environment variables
-- Service dependencies
-- GPU resource allocation
 ```
 
 ### **Scalability Options**
@@ -820,7 +796,7 @@ Body: {
 
 ## 📖 Setup Instructions
 
-### **Quick Start (Docker)**
+### **Quick Start (Local)**
 ```bash
 # Clone repository
 git clone <repo-url>
@@ -830,27 +806,40 @@ cd "Hospital Feedback Project"
 cp config/.env.example .env
 # Edit .env with MongoDB Atlas credentials
 
-# Start all services
-docker-compose up -d
+# Create shared venv
+python -m venv .venv
 
-# Access dashboard
-open http://localhost:3000
+# Install Python dependencies
+.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.venv\Scripts\python.exe -m pip install -r ai_worker/requirements.txt
+
+# Start backend
+.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Start AI worker (separate terminal)
+.venv\Scripts\python.exe ai_worker/worker.py
+
+# Start frontend (separate terminal)
+cd frontend && npm install && npm start
 ```
 
 ### **Manual Setup**
 ```bash
+# Create shared venv
+python -m venv .venv
+
 # Install Python dependencies
-pip install -r backend/requirements.txt
-pip install -r ai_worker/requirements.txt
+.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.venv\Scripts\python.exe -m pip install -r ai_worker/requirements.txt
 
 # Install Node dependencies
 cd frontend && npm install
 
 # Start backend
-python backend/main.py
+.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 # Start AI worker (separate terminal)
-python ai_worker/worker.py
+.venv\Scripts\python.exe ai_worker/worker.py
 
 # Start frontend (separate terminal)
 cd frontend && npm start
